@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RecepciónPro — Control Inteligente de Recepción</title>
+  <meta name="description" content="Sistema de control de recepción de productos con escaneo de códigos de barras y validación automática contra planillas Excel." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <!-- SheetJS for Excel parsing -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <!-- ZXing for barcode scanning -->
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ===================== SIDEBAR NAV ===================== -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">📦</div>
+    <div class="logo-text">
+      <span class="logo-title">RecepciónPro</span>
+      <span class="logo-sub">Control Inteligente</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active" data-view="dashboard" id="nav-dashboard">
+      <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+    </a>
+    <a href="#" class="nav-item" data-view="upload" id="nav-upload">
+      <span class="nav-icon">📋</span><span class="nav-label">Planillas</span>
+    </a>
+    <a href="#" class="nav-item" data-view="scanner" id="nav-scanner">
+      <span class="nav-icon">🔍</span><span class="nav-label">Escaneo</span>
+    </a>
+    <a href="#" class="nav-item" data-view="compare" id="nav-compare">
+      <span class="nav-icon">⚖️</span><span class="nav-label">Comparación</span>
+    </a>
+    <a href="#" class="nav-item" data-view="reports" id="nav-reports">
+      <span class="nav-icon">📄</span><span class="nav-label">Reportes</span>
+    </a>
+    <a href="#" class="nav-item" data-view="history" id="nav-history">
+      <span class="nav-icon">🕐</span><span class="nav-label">Historial</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-status" id="sidebar-status">
+    <div class="status-dot disconnected" id="status-dot"></div>
+    <span id="status-label">Sin sesión</span>
+  </div>
+</aside>
+
+<!-- ===================== MAIN CONTENT ===================== -->
+<main class="main-content" id="main-content">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <button class="menu-toggle" id="menu-toggle">☰</button>
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" id="btn-config" title="Configurar Supabase">⚙️ Config</button>
+      <div class="session-badge" id="session-badge">
+        <span class="session-badge-dot"></span>
+        <span id="session-badge-text">Sin sesión activa</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====== VIEW: DASHBOARD ====== -->
+  <section class="view active" id="view-dashboard">
+    <div class="view-header">
+      <h1>Dashboard General</h1>
+      <p>Resumen de recepciones y estado del sistema</p>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card" id="stat-total">
+        <div class="stat-icon">📦</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-val-esperados">0</div>
+          <div class="stat-label">Esperados</div>
+        </div>
+        <div class="stat-trend neutral">—</div>
+      </div>
+      <div class="stat-card success" id="stat-ok">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-val-correctos">0</div>
+          <div class="stat-label">Correctos</div>
+        </div>
+        <div class="stat-trend up" id="stat-pct-ok">0%</div>
+      </div>
+      <div class="stat-card danger" id="stat-faltantes">
+        <div class="stat-icon">❌</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-val-faltantes">0</div>
+          <div class="stat-label">Faltantes</div>
+        </div>
+        <div class="stat-trend down" id="stat-pct-faltantes">0%</div>
+      </div>
+      <div class="stat-card warning" id="stat-sobrantes">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-val-sobrantes">0</div>
+          <div class="stat-label">Sobrantes</div>
+        </div>
+        <div class="stat-trend warning" id="stat-pct-sobrantes">0%</div>
+      </div>
+      <div class="stat-card info" id="stat-escaneados">
+        <div class="stat-icon">🔍</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-val-escaneados">0</div>
+          <div class="stat-label">Escaneados</div>
+        </div>
+        <div class="stat-trend neutral" id="stat-pct-escaneados">hoy</div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-section card">
+      <div class="card-header">
+        <h2>Progreso de Recepción</h2>
+        <span class="tag" id="session-name-display">Sin sesión</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="main-progress-bar" style="width:0%">
+          <span class="progress-label" id="main-progress-label">0%</span>
+        </div>
+      </div>
+      <div class="progress-meta">
+        <span id="progress-meta-text">Carga una planilla y crea una sesión para comenzar</span>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick-actions">
+      <button class="btn btn-primary big" onclick="switchView('upload')">
+        📋 Cargar Planilla
+      </button>
+      <button class="btn btn-success big" onclick="switchView('scanner')">
+        🔍 Iniciar Escaneo
+      </button>
+      <button class="btn btn-outline big" onclick="switchView('reports')">
+        📄 Ver Reporte
+      </button>
+    </div>
+
+    <!-- Recent scans live feed -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Últimos Escaneos</h2>
+        <span class="pulse-dot" id="live-dot"></span>
+      </div>
+      <div class="live-feed" id="live-feed">
+        <div class="feed-empty">No hay escaneos aún. Inicia una sesión para comenzar.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== VIEW: UPLOAD ====== -->
+  <section class="view" id="view-upload">
+    <div class="view-header">
+      <h1>Cargar Planilla Excel</h1>
+      <p>Importa el listado esperado de productos desde un archivo Excel (.xlsx, .xls, .csv)</p>
+    </div>
+
+    <div class="upload-grid">
+      <!-- Dropzone -->
+      <div class="card upload-card">
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+          <div class="dropzone-icon">📂</div>
+          <div class="dropzone-text">
+            <strong>Arrastra tu Excel aquí</strong>
+            <span>o haz clic para seleccionar</span>
+            <span class="dropzone-hint">.xlsx · .xls · .csv — máx. 10MB</span>
+          </div>
+        </div>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" />
+
+        <!-- Column mapping -->
+        <div class="col-mapping" id="col-mapping" style="display:none">
+          <h3>Mapear columnas</h3>
+          <div class="mapping-row">
+            <label>Código de barras</label>
+            <select id="map-barcode"></select>
+          </div>
+          <div class="mapping-row">
+            <label>Descripción</label>
+            <select id="map-description"></select>
+          </div>
+          <div class="mapping-row">
+            <label>Cantidad esperada</label>
+            <select id="map-quantity"></select>
+          </div>
+          <div class="mapping-row">
+            <label>Unidad</label>
+            <select id="map-unit"></select>
+          </div>
+          <div class="mapping-row" style="background:var(--cyan-glow);padding:8px 12px;border-radius:10px;border:1px solid var(--cyan2);">
+            <label style="color:var(--cyan)">🔁 Código Alterno / Alias EAN</label>
+            <select id="map-alias"></select>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:12px">💡 Si el código en tu planilla es diferente al que imprime el fabricante en el producto, mapea aquí la columna con el código de barras físico.</p>
+          <button class="btn btn-primary" id="btn-import-excel" onclick="importExcel()">
+            ✅ Importar Planilla
+          </button>
+        </div>
+      </div>
+
+      <!-- Session creator -->
+      <div class="card">
+        <div class="card-header"><h2>Nueva Sesión de Recepción</h2></div>
+        <div class="form-group">
+          <label>Nombre de la sesión</label>
+          <input type="text" id="session-name" placeholder="Ej: Recepción Alpina — Abril 23" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Proveedor / Transportadora</label>
+          <input type="text" id="session-supplier" placeholder="Ej: Distribuciones XYZ" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Notas</label>
+          <textarea id="session-notes" placeholder="Observaciones generales..." class="form-input" rows="3"></textarea>
+        </div>
+        <button class="btn btn-primary" id="btn-create-session" onclick="createSession()">
+          🚀 Crear Sesión
+        </button>
+
+        <!-- Saved planillas list -->
+        <div class="divider"></div>
+        <h3>Planillas Guardadas</h3>
+        <div class="planillas-list" id="planillas-list">
+          <div class="feed-empty">Sin planillas cargadas</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview table -->
+    <div class="card" id="preview-card" style="display:none">
+      <div class="card-header">
+        <h2>Vista Previa</h2>
+        <span class="tag" id="preview-count-tag">0 ítems</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="preview-table">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== VIEW: SCANNER ====== -->
+  <section class="view" id="view-scanner">
+    <div class="view-header">
+      <h1>Escaneo de Productos</h1>
+      <p>Escanea con cámara, lector USB/Bluetooth o ingresa manualmente</p>
+    </div>
+
+    <div class="scanner-layout">
+      <!-- Camera / Manual / List scanner -->
+      <div class="card scanner-card">
+        <div class="scanner-tabs">
+          <button class="scanner-tab active" id="tab-camera" onclick="switchScannerTab('camera')">📷 Cámara</button>
+          <button class="scanner-tab" id="tab-manual" onclick="switchScannerTab('manual')">⌨️ Lector</button>
+          <button class="scanner-tab" id="tab-lista" onclick="switchScannerTab('lista')">📋 Lista</button>
+        </div>
+
+        <!-- Camera view -->
+        <div id="scanner-camera-panel">
+          <div class="camera-wrap" id="camera-wrap">
+            <video id="scanner-video" autoplay muted playsinline></video>
+            <div class="scan-overlay">
+              <div class="scan-line"></div>
+              <div class="scan-corners">
+                <span class="corner tl"></span><span class="corner tr"></span>
+                <span class="corner bl"></span><span class="corner br"></span>
+              </div>
+            </div>
+            <div class="camera-status" id="camera-status">📷 Cámara apagada</div>
+          </div>
+          <div class="camera-controls">
+            <button class="btn btn-primary" id="btn-start-camera" onclick="startCamera()">▶ Iniciar Cámara</button>
+            <button class="btn btn-danger" id="btn-stop-camera" onclick="stopCamera()" style="display:none">⏹ Detener</button>
+            <select id="camera-select" class="form-input"></select>
+          </div>
+        </div>
+
+        <!-- Manual input -->
+        <div id="scanner-manual-panel" style="display:none">
+          <div class="manual-input-wrap">
+            <div class="manual-icon">🔍</div>
+            <p>Conecta tu lector de barras (USB/Bluetooth) o escribe el código manualmente.</p>
+            <div class="manual-input-group">
+              <input type="text" id="manual-barcode-input" class="form-input barcode-input"
+                     placeholder="Escanea o escribe el código..." autocomplete="off" />
+              <button class="btn btn-primary" onclick="processManualScan()">Registrar</button>
+            </div>
+            <div class="form-group">
+              <label>Cantidad (por defecto 1)</label>
+              <input type="number" id="manual-qty" value="1" min="1" class="form-input" style="width:100px" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista / Checklist mode (no barcode needed) -->
+        <div id="scanner-lista-panel" style="display:none">
+          <div class="lista-header">
+            <span style="font-size:13px;color:var(--text2)">Toca <strong>+</strong> para registrar unidades recibidas producto por producto</span>
+            <input type="text" class="form-input" id="lista-search" placeholder="🔎 Buscar producto..." oninput="renderListaPanel()" style="margin-top:10px" />
+          </div>
+          <div class="lista-items" id="lista-items">
+            <div class="feed-empty">Crea una sesión con una planilla para ver los productos</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan results panel -->
+      <div class="card scan-results-card">
+        <div class="card-header">
+          <h2>Resultado del Escaneo</h2>
+          <div class="scan-counters">
+            <span class="counter success" id="sc-ok">✅ 0</span>
+            <span class="counter danger" id="sc-err">❌ 0</span>
+            <span class="counter warning" id="sc-warn">⚠️ 0</span>
+          </div>
+        </div>
+
+        <!-- Last scan result -->
+        <div class="last-scan-box" id="last-scan-box">
+          <div class="last-scan-code" id="last-scan-code">—</div>
+          <div class="last-scan-status" id="last-scan-status">Esperando escaneo...</div>
+          <div class="last-scan-detail" id="last-scan-detail"></div>
+        </div>
+
+        <!-- Scanned items list -->
+        <div class="scanned-list" id="scanned-list">
+          <div class="feed-empty">Aún no se han escaneado productos</div>
+        </div>
+
+        <div class="scan-actions">
+          <button class="btn btn-ghost" onclick="undoLastScan()" id="btn-undo">↩ Deshacer último</button>
+          <button class="btn btn-outline" onclick="switchView('compare')">⚖️ Ver Comparación</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== VIEW: COMPARE ====== -->
+  <section class="view" id="view-compare">
+    <div class="view-header">
+      <h1>Comparación Planilla vs. Recibido</h1>
+      <p>Diferencias detectadas en tiempo real entre lo esperado y lo físicamente recibido</p>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Todos</button>
+      <button class="filter-btn" data-filter="ok" onclick="setFilter('ok',this)">✅ Correctos</button>
+      <button class="filter-btn" data-filter="faltante" onclick="setFilter('faltante',this)">❌ Faltantes</button>
+      <button class="filter-btn" data-filter="sobrante" onclick="setFilter('sobrante',this)">⚠️ Sobrantes</button>
+      <button class="filter-btn" data-filter="no_planilla" onclick="setFilter('no_planilla',this)">🔴 No en planilla</button>
+      <input type="text" class="form-input search-input" id="compare-search" placeholder="🔎 Buscar código o descripción..." oninput="renderCompareTable()" />
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table compare-table" id="compare-table">
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Esperado</th>
+              <th>Recibido</th>
+              <th>Diferencia</th>
+            </tr>
+          </thead>
+          <tbody id="compare-tbody">
+            <tr><td colspan="6" class="feed-empty">Sin datos de comparación</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== VIEW: REPORTS ====== -->
+  <section class="view" id="view-reports">
+    <div class="view-header">
+      <h1>Reporte Final</h1>
+      <p>Genera y exporta el resumen de la sesión actual</p>
+    </div>
+
+    <div class="report-actions">
+      <button class="btn btn-primary" onclick="generateReport()">🔄 Generar Reporte</button>
+      <button class="btn btn-success" onclick="exportReportExcel()">📥 Exportar Excel</button>
+      <button class="btn btn-outline" onclick="exportReportPrint()">🖨️ Imprimir</button>
+    </div>
+
+    <div id="report-container">
+      <div class="card">
+        <div class="feed-empty" id="report-empty-msg">Genera el reporte para visualizar el resumen de la sesión.</div>
+        <div id="report-content" style="display:none">
+          <!-- injected by JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== VIEW: HISTORY ====== -->
+  <section class="view" id="view-history">
+    <div class="view-header">
+      <h1>Historial de Sesiones</h1>
+      <p>Registro de todas las recepciones anteriores</p>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table" id="history-table">
+          <thead>
+            <tr><th>Sesión</th><th>Proveedor</th><th>Fecha</th><th>Items</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="history-tbody">
+            <tr><td colspan="6" class="feed-empty">Sin historial disponible</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ====== MODALS ====== -->
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="modal-config">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚙️ Configuración de Supabase</h2>
+      <button class="modal-close" onclick="closeModal('modal-config')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Supabase URL</label>
+        <input type="text" id="cfg-url" class="form-input" placeholder="https://xxxx.supabase.co" />
+      </div>
+      <div class="form-group">
+        <label>Anon Key</label>
+        <input type="text" id="cfg-key" class="form-input" placeholder="eyJhbGciOiJ..." />
+      </div>
+      <div class="config-status" id="config-status"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-config')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar y Conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Audio context for beeps -->
+<audio id="beep-ok" src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivsJBuXGBqiZm2ppRvWF5oi52ytoyAaGlxiZOjr6CRf25nb3qHk5eRh3hsaW90f4mLhH5yaW5zeoKFf3dtam50e4GBfXdvbHB2e3+AfHZvbHB2e4B8d3FtcHN4e316d3JvcHN3e3x7d3NxcnV5fH17eXVzdXh7fn57eXd2d3p8fn59e3l5eXt9fn59e3l5eXt9fn59e3l5eXt9fn59e3l4AAABAgMEBQYHCAgJCQoKCwsMDA0NDg4PDxAQEBERERISEhMTExQUFBUVFRYWFhcXFxcYGBgZGRkZGhoaGxsbGxwcHBwdHR0dHh4eHx8fHx8gICAgISEhISIiIiMjIyMkJCQkJSUlJSYmJiYnJycnKCgoKCkpKSoqKioqKysrKyssLCwsLS0tLS4uLi4vLy8v" style="display:none"></audio>
+<audio id="beep-err" src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivsJBuXGBqiZm2ppRvWF5oi52ytoyAaGlxiZOjr6CRf25nb3qHk5eRh3hsaW90f4mLhH5yaW5zeoKFf3dtam10fYCAfHZvbHB2fX57eXJuc3h8fnt3cm9wc3h7enl3dHN0d3p8fHt5d3d5e31+fXt5eHl7fX5+fXt5eHl7fX5+fXt5eHl7fX5+fXt5eHl7fX5+fXt5eBMTExQUFBUVFRYWFhcXFxcYGBgZGRkZGhoaGxsbGxwcHBwdHR0dHh4eHx8fHx8gICAgISEhISIiIiMjIyMkJCQkJSUlJSYmJiYnJycnKCgoKCkpKSoqKiosLCwsLS0tLS4uLi4vLy8v" style="display:none"></audio>
+
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

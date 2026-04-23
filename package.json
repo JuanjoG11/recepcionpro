@@ -1,0 +1,9 @@
+{
+  "name": "recepcionpro",
+  "version": "1.0.0",
+  "description": "Sistema de Control de Recepcion Inteligente",
+  "scripts": {
+    "start": "npx serve . -p 3000 --no-clipboard",
+    "dev": "npx serve . -p 3000"
+  }
+}
