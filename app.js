@@ -282,38 +282,39 @@ function initBarcodeListeners() {
 }
 
 async function startCamera() {
+    console.log('Iniciando cámara...');
     const wrap = document.getElementById('camera-wrap');
-    const btn = document.getElementById('btn-start-camera');
+    const btnStart = document.getElementById('btn-start-camera');
+    const btnStop = document.getElementById('btn-stop-camera');
     const status = document.getElementById('camera-status');
     const video = document.getElementById('scanner-video');
     
     try {
-        console.log('Iniciando cámara...');
         if (status) {
             status.style.display = 'flex';
             status.textContent = "⌛ Iniciando...";
         }
         
         const ZXingLib = window.ZXing || window.ZXingJS;
-        if (!ZXingLib) throw new Error('Librería no cargada');
+        if (!ZXingLib) throw new Error('Librería de escaneo no cargada');
 
         if (!codeReader) {
             codeReader = new ZXingLib.BrowserMultiFormatReader();
         }
 
         const devices = await codeReader.listVideoInputDevices();
-        console.log('Cámaras:', devices);
+        console.log('Dispositivos:', devices);
         
-        if (devices.length === 0) throw new Error('No se detectó ninguna cámara.');
+        if (devices.length === 0) throw new Error('No se detectó cámara');
         
-        // Select best camera
+        // Pick rear camera or last one
         const selectedDevice = devices.find(d => 
             d.label.toLowerCase().includes('back') || 
             d.label.toLowerCase().includes('trasera') || 
             d.label.toLowerCase().includes('rear')
-        ) || devices[0];
+        ) || devices[devices.length - 1];
 
-        if (btn) btn.innerHTML = '⌛ Conectando...';
+        if (btnStart) btnStart.innerHTML = '⌛ Conectando...';
         
         await codeReader.decodeFromVideoDevice(selectedDevice.deviceId, 'scanner-video', (result, err) => {
             if (result) {
@@ -327,25 +328,37 @@ async function startCamera() {
             }
         });
         
-        if (btn) btn.style.display = 'none';
+        if (btnStart) btnStart.style.display = 'none';
+        if (btnStop) btnStop.style.display = 'inline-flex';
         if (status) status.style.display = 'none';
-        document.getElementById('btn-stop-camera').style.display = 'inline-flex';
         showToast('Cámara activa', 'ok');
         
     } catch (e) {
         console.error('Error startCamera:', e);
-        if (status) status.textContent = `❌ ${e.message}`;
-        if (btn) btn.innerHTML = '▶ Reintentar Cámara';
+        if (status) {
+            status.style.display = 'flex';
+            status.textContent = `❌ ${e.message}`;
+        }
+        if (btnStart) {
+            btnStart.style.display = 'inline-flex';
+            btnStart.innerHTML = '▶ Reintentar Cámara';
+        }
         showToast(e.message, 'err');
     }
 }
 
 function stopCamera() {
     if (codeReader) codeReader.reset();
-    document.getElementById('camera-status').style.display = 'flex';
-    document.getElementById('camera-status').textContent = "📷 Cámara apagada";
-    document.getElementById('btn-start-camera').style.display = 'inline-flex';
-    document.getElementById('btn-stop-camera').style.display = 'none';
+    const status = document.getElementById('camera-status');
+    const btnStart = document.getElementById('btn-start-camera');
+    const btnStop = document.getElementById('btn-stop-camera');
+    
+    if (status) {
+        status.style.display = 'flex';
+        status.textContent = "📷 Cámara apagada";
+    }
+    if (btnStart) btnStart.style.display = 'inline-flex';
+    if (btnStop) btnStop.style.display = 'none';
 }
 
 function switchScannerTab(tab) {
