@@ -355,27 +355,40 @@
   <!-- ====== VIEW: COMPARE ====== -->
   <section class="view" id="view-compare">
     <div class="view-header">
-      <h1>Comparación Planilla vs. Recibido</h1>
-      <p>Diferencias detectadas en tiempo real entre lo esperado y lo físicamente recibido</p>
+      <h1>Comparación y Novedades</h1>
+      <p>Verifica discrepancias entre lo esperado y lo recibido</p>
     </div>
 
-    <div class="filter-bar">
-      <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Todos</button>
-      <button class="filter-btn" data-filter="ok" onclick="setFilter('ok',this)">✅ Correctos</button>
-      <button class="filter-btn" data-filter="faltante" onclick="setFilter('faltante',this)">❌ Faltantes</button>
-      <button class="filter-btn" data-filter="sobrante" onclick="setFilter('sobrante',this)">⚠️ Sobrantes</button>
-      <button class="filter-btn" data-filter="no_planilla" onclick="setFilter('no_planilla',this)">🔴 No en planilla</button>
-      <input type="text" class="form-input search-input" id="compare-search" placeholder="🔎 Buscar código o descripción..." oninput="renderCompareTable()" />
+    <!-- Summary Cards for Comparison -->
+    <div class="compare-summary">
+      <div class="compare-card">
+        <span class="val" id="comp-val-ok" style="color:var(--green)">0</span>
+        <span class="lbl">Ítems OK</span>
+      </div>
+      <div class="compare-card">
+        <span class="val" id="comp-val-faltantes" style="color:var(--red)">0</span>
+        <span class="lbl">Faltantes</span>
+      </div>
+      <div class="compare-card">
+        <span class="val" id="comp-val-sobrantes" style="color:var(--yellow)">0</span>
+        <span class="lbl">Sobrantes</span>
+      </div>
     </div>
 
     <div class="card">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="setCompareFilter('all',this)">Todos</button>
+        <button class="filter-btn" data-filter="novedad" onclick="setCompareFilter('novedad',this)">⚠️ Novedades</button>
+        <input type="text" class="form-input search-input" id="compare-search" placeholder="🔎 Buscar código o descripción..." oninput="renderCompareTable()" />
+      </div>
+
       <div class="table-wrap">
-        <table class="data-table compare-table" id="compare-table">
+        <table class="data-table" id="compare-table">
           <thead>
             <tr>
               <th>Estado</th>
               <th>Código</th>
-              <th>Descripción</th>
+              <th>Producto</th>
               <th>Esperado</th>
               <th>Recibido</th>
               <th>Diferencia</th>

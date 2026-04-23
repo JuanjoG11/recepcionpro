@@ -359,13 +359,58 @@ function renderScannedList() {
         return `<div class="scanned-item"><span class="si-status">${item ? '✅' : '🔴'}</span><span class="si-code">${s.codigo_barras}</span><span class="si-desc">${item ? item.descripcion : 'Desconocido'}</span><span class="si-qty">x${s.cantidad}</span></div>`;
     }).join('');
 }
+let compareFilter = 'all';
+
+function setCompareFilter(filter, el) {
+    compareFilter = filter;
+    document.querySelectorAll('#view-compare .filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderCompareTable();
+}
+
 function renderCompareTable() {
     const tbody = document.getElementById('compare-tbody');
-    const receivedMap = {}; sessionData.scans.forEach(s => receivedMap[s.codigo_barras] = (receivedMap[s.codigo_barras] || 0) + s.cantidad);
-    tbody.innerHTML = sessionData.expected.map(item => {
+    const search = document.getElementById('compare-search').value.toLowerCase();
+    
+    const receivedMap = {};
+    sessionData.scans.forEach(s => receivedMap[s.codigo_barras] = (receivedMap[s.codigo_barras] || 0) + s.cantidad);
+
+    let ok = 0, faltantes = 0, sobrantes = 0;
+    
+    const rows = sessionData.expected.map(item => {
         const received = receivedMap[item.codigo_barras] || 0;
-        return `<tr><td><span class="badge badge-${received === item.cantidad_esperada ? 'ok' : 'faltante'}">${received === item.cantidad_esperada ? 'ok' : 'novedad'}</span></td><td>${item.codigo_barras}</td><td>${item.descripcion}</td><td>${item.cantidad_esperada}</td><td>${received}</td><td>${received - item.cantidad_esperada}</td></tr>`;
-    }).join('');
+        const diff = received - item.cantidad_esperada;
+        
+        if (diff === 0) ok++;
+        else if (diff < 0) faltantes++;
+        else sobrantes++;
+
+        // Filter logic
+        if (compareFilter === 'novedad' && diff === 0) return null;
+        if (search && !item.codigo_barras.includes(search) && !item.descripcion.toLowerCase().includes(search)) return null;
+
+        const badge = diff === 0 ? 'badge-ok' : (diff < 0 ? 'badge-faltante' : 'badge-sobrante');
+        const badgeText = diff === 0 ? 'OK' : (diff < 0 ? 'Faltante' : 'Sobrante');
+        const diffClass = diff === 0 ? 'zero' : (diff < 0 ? 'neg' : 'pos');
+
+        return `
+            <tr>
+                <td><span class="badge ${badge}">${badgeText}</span></td>
+                <td class="si-code">${item.codigo_barras}</td>
+                <td>${item.descripcion}</td>
+                <td style="font-weight:600">${item.cantidad_esperada}</td>
+                <td style="font-weight:600">${received}</td>
+                <td class="diff-val ${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
+            </tr>
+        `;
+    }).filter(r => r !== null);
+
+    // Update Comparison Summary Cards
+    document.getElementById('comp-val-ok').textContent = ok;
+    document.getElementById('comp-val-faltantes').textContent = faltantes;
+    document.getElementById('comp-val-sobrantes').textContent = sobrantes;
+
+    tbody.innerHTML = rows.join('') || `<tr><td colspan="6" class="feed-empty">No hay ${compareFilter === 'novedad' ? 'novedades' : 'datos'} que coincidan</td></tr>`;
 }
 function loadHistory() {
     db_getSessionsHistory().then(history => {
