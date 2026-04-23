@@ -292,13 +292,19 @@ function findExpectedItem(code) {
 function updateLastScanBox(code, qty) {
     const box = document.getElementById('last-scan-box');
     const item = findExpectedItem(code);
-    document.getElementById('last-scan-code').textContent = code;
+    const displayCode = code.length > 50 ? code.substring(0, 47) + '...' : code;
+    document.getElementById('last-scan-code').textContent = displayCode;
+    
     if (item) {
         const total = sessionData.scans.filter(s => s.codigo_barras === code || s.codigo_barras === item.codigo_barras).reduce((a,b) => a + b.cantidad, 0);
         box.className = total > item.cantidad_esperada ? 'last-scan-box warn' : 'last-scan-box ok';
         document.getElementById('last-scan-status').textContent = total > item.cantidad_esperada ? '⚠️ Sobrante' : '✅ Correcto';
         document.getElementById('last-scan-detail').textContent = `${item.descripcion} (${total}/${item.cantidad_esperada})`;
-    } else { box.className = 'last-scan-box err'; document.getElementById('last-scan-status').textContent = '🔴 No en planilla'; document.getElementById('last-scan-detail').textContent = 'Desconocido'; }
+    } else { 
+        box.className = 'last-scan-box err'; 
+        document.getElementById('last-scan-status').textContent = '🔴 No en planilla'; 
+        document.getElementById('last-scan-detail').textContent = code.length > 100 ? 'Código muy largo (posible Factura DIAN)' : 'Desconocido'; 
+    }
 }
 function updateDashboard() {
     const stats = calculateStats();

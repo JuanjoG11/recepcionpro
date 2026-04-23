@@ -227,13 +227,18 @@ select.form-input{cursor:pointer}
 .last-scan-box{
   background:var(--bg3);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;
   border:2px solid var(--border2);transition:border-color .3s,background .3s;
+  overflow:hidden; /* Prevent overflow */
 }
 .last-scan-box.ok{border-color:var(--green);background:var(--green-glow)}
 .last-scan-box.err{border-color:var(--red);background:var(--red-glow)}
 .last-scan-box.warn{border-color:var(--yellow);background:var(--yellow-glow)}
-.last-scan-code{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;margin-bottom:6px}
+.last-scan-code{
+  font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;margin-bottom:6px;
+  word-break:break-all; /* Critical: wrap long codes */
+  line-height:1.2;
+}
 .last-scan-status{font-size:16px;font-weight:600;margin-bottom:4px}
-.last-scan-detail{font-size:12px;color:var(--text3)}
+.last-scan-detail{font-size:12px;color:var(--text3);word-break:break-word}
 .scan-counters{display:flex;gap:8px}
 .counter{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700}
 .counter.success{background:var(--green-glow);color:var(--green)}
@@ -244,11 +249,12 @@ select.form-input{cursor:pointer}
 .scanned-item{
   display:flex;align-items:center;gap:10px;padding:8px 12px;
   background:var(--bg3);border-radius:8px;font-size:12px;
+  overflow:hidden;
 }
-.scanned-item .si-status{font-size:16px}
-.si-code{font-family:'JetBrains Mono',monospace;font-weight:600}
+.scanned-item .si-status{font-size:16px;flex-shrink:0}
+.si-code{font-family:'JetBrains Mono',monospace;font-weight:600;word-break:break-all;max-width:120px}
 .si-desc{color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.si-qty{font-weight:700;color:var(--cyan);font-family:'JetBrains Mono',monospace}
+.si-qty{font-weight:700;color:var(--cyan);font-family:'JetBrains Mono',monospace;flex-shrink:0}
 
 /* ===== COMPARE TABLE ===== */
 .filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
