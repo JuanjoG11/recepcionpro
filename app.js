@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     const savedSessionId = localStorage.getItem('active_session_id');
     if (savedSessionId) resumeSession(savedSessionId);
+
+    // Sync listener for offline mode
+    window.addEventListener('online', db_syncOfflineScans);
+    if (navigator.onLine) db_syncOfflineScans();
 });
 
 // --- NAVIGATION ---
@@ -260,6 +264,15 @@ async function processBarcode(code, method, qty = 1) {
         openAssociateModal(code);
         return;
     }
+    
+    // Voice feedback
+    if (window.speechSynthesis) {
+        const msg = new SpeechSynthesisUtterance(item ? item.descripcion : 'Producto desconocido');
+        msg.lang = 'es-ES';
+        msg.rate = 1.2;
+        window.speechSynthesis.speak(msg);
+    }
+
     const scan = await db_saveScan(currentSession.id, code, qty, method);
     if (scan) {
         sessionData.scans.push(scan); updateLastScanBox(code, qty); updateDashboard(); renderScannedList(); addToLiveFeed(code, method); playBeep('ok');

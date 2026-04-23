@@ -90,17 +90,29 @@ async function db_createSession(planillaId, name, supplier, notes) {
     return data;
 }
 
-// 4. Register a scan
+// 4. Register a scan (with Offline support)
 async function db_saveScan(sessionId, barcode, qty, method) {
+    const scanObj = {
+        sesion_id: sessionId,
+        codigo_barras: String(barcode),
+        cantidad: qty,
+        metodo: method,
+        created_at: new Date().toISOString()
+    };
+
+    if (!navigator.onLine) {
+        console.warn('Offline: Guardando escaneo localmente...');
+        const offlineQueue = JSON.parse(localStorage.getItem('offline_scans') || '[]');
+        offlineQueue.push(scanObj);
+        localStorage.setItem('offline_scans', JSON.stringify(offlineQueue));
+        showToast('Guardado local (Sin Internet)', 'warn');
+        return { ...scanObj, id: 'temp-' + Date.now() };
+    }
+
     if (!checkSB()) return null;
     const { data, error } = await sb
         .from('escaneos')
-        .insert([{
-            sesion_id: sessionId,
-            codigo_barras: String(barcode),
-            cantidad: qty,
-            metodo: method
-        }])
+        .insert([scanObj])
         .select()
         .single();
     
@@ -109,6 +121,30 @@ async function db_saveScan(sessionId, barcode, qty, method) {
         return null;
     }
     return data;
+}
+
+async function db_syncOfflineScans() {
+    if (!navigator.onLine || !sb) return;
+    const offlineQueue = JSON.parse(localStorage.getItem('offline_scans') || '[]');
+    if (offlineQueue.length === 0) return;
+
+    console.log(`Sincronizando ${offlineQueue.length} escaneos pendientes...`);
+    showToast(`Sincronizando ${offlineQueue.length} escaneos...`, 'ok');
+
+    // Remove temp IDs if any and insert
+    const toInsert = offlineQueue.map(s => {
+        const { id, ...rest } = s;
+        return rest;
+    });
+
+    const { error } = await sb.from('escaneos').insert(toInsert);
+    
+    if (!error) {
+        localStorage.setItem('offline_scans', '[]');
+        showToast('Sincronización completa', 'ok');
+    } else {
+        console.error('Error en sincronización:', error);
+    }
 }
 
 // 5. Delete last scan (Undo)
