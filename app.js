@@ -282,25 +282,20 @@ function initBarcodeListeners() {
 }
 
 async function startCamera() {
-    const container = document.getElementById('camera-view');
+    const wrap = document.getElementById('camera-wrap');
     const btn = document.getElementById('btn-start-camera');
+    const status = document.getElementById('camera-status');
+    const video = document.getElementById('scanner-video');
     
     try {
-        console.log('Solicitando permisos...');
-        if (btn) btn.innerHTML = '⌛ Solicitando permisos...';
-        
-        // Critical for mobile: playsinline and muted
-        container.innerHTML = `
-            <video id="video" 
-                   style="width:100%; height:100%; object-fit:cover; border-radius:12px;" 
-                   playsinline 
-                   muted 
-                   autoplay></video>
-            <div class="scanner-laser"></div>
-        `;
+        console.log('Iniciando cámara...');
+        if (status) {
+            status.style.display = 'flex';
+            status.textContent = "⌛ Iniciando...";
+        }
         
         const ZXingLib = window.ZXing || window.ZXingJS;
-        if (!ZXingLib) throw new Error('Cargando librería...');
+        if (!ZXingLib) throw new Error('Librería no cargada');
 
         if (!codeReader) {
             codeReader = new ZXingLib.BrowserMultiFormatReader();
@@ -311,31 +306,35 @@ async function startCamera() {
         
         if (devices.length === 0) throw new Error('No se detectó ninguna cámara.');
         
-        // Pick the best camera (rear one preferred)
+        // Select best camera
         const selectedDevice = devices.find(d => 
             d.label.toLowerCase().includes('back') || 
             d.label.toLowerCase().includes('trasera') || 
             d.label.toLowerCase().includes('rear')
         ) || devices[0];
 
-        if (btn) btn.innerHTML = '⌛ Encendiendo...';
+        if (btn) btn.innerHTML = '⌛ Conectando...';
         
-        await codeReader.decodeFromVideoDevice(selectedDevice.deviceId, 'video', (result, err) => {
+        await codeReader.decodeFromVideoDevice(selectedDevice.deviceId, 'scanner-video', (result, err) => {
             if (result) {
                 const text = result.getText();
                 processBarcode(text, 'camara');
                 playBeep('ok');
-                container.classList.add('scan-success');
-                setTimeout(() => container.classList.remove('scan-success'), 300);
+                if (wrap) {
+                    wrap.classList.add('scan-success');
+                    setTimeout(() => wrap.classList.remove('scan-success'), 300);
+                }
             }
         });
         
         if (btn) btn.style.display = 'none';
+        if (status) status.style.display = 'none';
+        document.getElementById('btn-stop-camera').style.display = 'inline-flex';
         showToast('Cámara activa', 'ok');
         
     } catch (e) {
         console.error('Error startCamera:', e);
-        container.innerHTML = `<div class="scanner-error">❌ ${e.message}</div>`;
+        if (status) status.textContent = `❌ ${e.message}`;
         if (btn) btn.innerHTML = '▶ Reintentar Cámara';
         showToast(e.message, 'err');
     }
