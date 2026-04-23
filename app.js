@@ -298,26 +298,31 @@ async function startCamera() {
             devices.forEach(d => {
                 const opt = document.createElement('option');
                 opt.value = d.deviceId;
-                opt.textContent = d.label || `Cámara ${select.length + 1}`;
-                select.appendChild(opt);
-            });
-        }
+        console.log('Dispositivos encontrados:', devices);
         
-        const selectedId = select.value || devices[0].deviceId;
+        if (devices.length === 0) throw new Error('No se encontraron cámaras en este dispositivo.');
         
-        codeReader.decodeFromVideoDevice(selectedId, 'scanner-video', (result, err) => {
+        // Prefer back camera, especially for mobile
+        const selectedDevice = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera')) || devices[devices.length - 1];
+        
+        console.log('Cámara seleccionada:', selectedDevice.label);
+        btn.innerHTML = '⌛ Iniciando...';
+        
+        await codeReader.decodeFromVideoDevice(selectedDevice.deviceId, 'video', (result, err) => {
             if (result) {
-                processBarcode(result.text, 'camara');
+                const text = result.getText();
+                console.log('¡Escaneado!', text);
+                processBarcode(text, 'camara');
                 playBeep('ok');
+                container.classList.add('scan-success');
+                setTimeout(() => container.classList.remove('scan-success'), 300);
             }
         });
-
-        status.style.display = 'none';
-        btnStart.style.display = 'none';
-        btnStop.style.display = 'inline-flex';
-        showToast('Cámara iniciada', 'ok');
+        
+        btn.style.display = 'none';
+        showToast('Cámara activa', 'ok');
+        
     } catch (e) {
-        console.error(e);
         status.textContent = "❌ Error al acceder a cámara";
     }
 }
