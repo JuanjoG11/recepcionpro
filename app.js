@@ -282,36 +282,45 @@ function initBarcodeListeners() {
 }
 
 async function startCamera() {
-    if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
-    
-    const video = document.getElementById('scanner-video');
+    const container = document.getElementById('camera-view');
+    const btn = document.getElementById('btn-start-camera');
     const status = document.getElementById('camera-status');
-    const btnStart = document.getElementById('btn-start-camera');
-    const btnStop = document.getElementById('btn-stop-camera');
-
-    status.textContent = "⌛ Iniciando...";
     
     try {
+        console.log('Iniciando cámara...');
+        if (status) status.textContent = "⌛ Iniciando...";
+        
+        container.innerHTML = '<video id="video" style="width:100%; height:100%; object-fit:cover; border-radius:12px;"></video><div class="scanner-laser"></div>';
+        
+        // ZXing might be under different names depending on bundle
+        const ZXingLib = window.ZXing || window.ZXingJS;
+        if (!ZXingLib) {
+            throw new Error('Librería de escaneo no cargada.');
+        }
+
+        if (!codeReader) {
+            codeReader = new ZXingLib.BrowserMultiFormatReader();
+        }
+
         const devices = await codeReader.listVideoInputDevices();
-        const select = document.getElementById('camera-select');
-        if (select.options.length === 0) {
-            devices.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.deviceId;
-        console.log('Dispositivos encontrados:', devices);
+        console.log('Dispositivos:', devices);
         
-        if (devices.length === 0) throw new Error('No se encontraron cámaras en este dispositivo.');
+        if (devices.length === 0) throw new Error('No se encontraron cámaras.');
         
-        // Prefer back camera, especially for mobile
-        const selectedDevice = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera')) || devices[devices.length - 1];
+        // Prefer back camera
+        const selectedDevice = devices.find(d => 
+            d.label.toLowerCase().includes('back') || 
+            d.label.toLowerCase().includes('trasera') ||
+            d.label.toLowerCase().includes('rear')
+        ) || devices[devices.length - 1];
         
-        console.log('Cámara seleccionada:', selectedDevice.label);
-        btn.innerHTML = '⌛ Iniciando...';
+        console.log('Usando:', selectedDevice.label);
+        if (btn) btn.innerHTML = '⌛ Iniciando...';
         
         await codeReader.decodeFromVideoDevice(selectedDevice.deviceId, 'video', (result, err) => {
             if (result) {
                 const text = result.getText();
-                console.log('¡Escaneado!', text);
+                console.log('Escaneado:', text);
                 processBarcode(text, 'camara');
                 playBeep('ok');
                 container.classList.add('scan-success');
@@ -319,11 +328,18 @@ async function startCamera() {
             }
         });
         
-        btn.style.display = 'none';
+        if (btn) btn.style.display = 'none';
+        if (status) status.style.display = 'none';
         showToast('Cámara activa', 'ok');
         
     } catch (e) {
-        status.textContent = "❌ Error al acceder a cámara";
+        console.error('Error cámara:', e);
+        container.innerHTML = `<div class="scanner-error">❌ Error: ${e.message}</div>`;
+        if (btn) {
+            btn.style.display = 'inline-flex';
+            btn.innerHTML = '▶ Reintentar Cámara';
+        }
+        showToast('Error: ' + e.message, 'err');
     }
 }
 
