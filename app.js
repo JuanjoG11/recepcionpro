@@ -156,13 +156,40 @@ async function resumeSession(id) {
     document.getElementById('session-badge').classList.add('active');
     document.getElementById('session-badge-text').textContent = currentSession.nombre;
     document.getElementById('session-name-display').textContent = currentSession.nombre;
-    updateDashboard(); renderScannedList();
+    
+    // Render all views that might be active
+    updateDashboard(); 
+    renderScannedList();
+    renderCompareTable();
+    renderListaPanel();
 }
 
 // --- SCANNER LOGIC ---
 function initBarcodeListeners() {
     const manualInput = document.getElementById('manual-barcode-input');
     if (manualInput) manualInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processManualScan(); });
+
+    // Support for HID Scanners (Pistols)
+    let buffer = "";
+    let lastKeyTime = Date.now();
+    document.addEventListener('keydown', (e) => {
+        // Skip if focused on an input
+        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+        
+        const currentTime = Date.now();
+        // Reset buffer if delay > 50ms (human typing is slower than scanner)
+        if (currentTime - lastKeyTime > 50) buffer = "";
+        
+        if (e.key === 'Enter') {
+            if (buffer.length > 2) {
+                processBarcode(buffer, 'lector');
+                buffer = "";
+            }
+        } else if (e.key.length === 1) {
+            buffer += e.key;
+        }
+        lastKeyTime = currentTime;
+    });
 }
 
 async function startCamera() {
