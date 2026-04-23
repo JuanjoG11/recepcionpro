@@ -449,6 +449,13 @@ async function listaAdjust(code, delta) {
 async function processBarcode(code, method, qty = 1) {
     if (!currentSession) { showToast('Crea una sesión primero', 'err'); return; }
 
+    const item = findExpectedItem(code);
+    if (!item && method !== 'manual_confirm') {
+        // Unknown barcode! Ask the user to associate it
+        openAssociateModal(code);
+        return;
+    }
+
     const scan = await db_saveScan(currentSession.id, code, qty, method);
     if (scan) {
         sessionData.scans.push(scan);
@@ -457,6 +464,67 @@ async function processBarcode(code, method, qty = 1) {
         renderScannedList();
         addToLiveFeed(code, method);
     }
+}
+
+// --- ASSOCIATION LOGIC ---
+let pendingBarcode = null;
+
+function openAssociateModal(code) {
+    pendingBarcode = String(code);
+    document.getElementById('unknown-code-display').textContent = pendingBarcode;
+    document.getElementById('associate-search').value = '';
+    renderAssociateList();
+    openModal('modal-associate');
+}
+
+function renderAssociateList() {
+    const container = document.getElementById('associate-list');
+    const search = document.getElementById('associate-search').value.toLowerCase();
+    
+    const items = sessionData.expected.filter(i => 
+        !search || i.descripcion.toLowerCase().includes(search) || i.codigo_barras.includes(search)
+    );
+
+    if (items.length === 0) {
+        container.innerHTML = '<div class="feed-empty">No hay productos que coincidan</div>';
+        return;
+    }
+
+    container.innerHTML = items.map(i => `
+        <div class="lista-item" onclick="associateAndProcess('${i.id}')">
+            <div class="li-info">
+                <span class="li-name">📦 ${i.descripcion}</span>
+                <span class="li-code">Planilla: ${i.codigo_barras}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm">Vincular</button>
+        </div>
+    `).join('');
+}
+
+async function associateAndProcess(itemId) {
+    const item = sessionData.expected.find(i => i.id === itemId);
+    if (!item) return;
+
+    // 1. Update local state
+    const currentAliases = item.alias_barras ? item.alias_barras.split(',').map(a => a.trim()) : [];
+    if (!currentAliases.includes(pendingBarcode)) {
+        currentAliases.push(pendingBarcode);
+        item.alias_barras = currentAliases.join(', ');
+        
+        // 2. Update DB
+        const { error } = await sb.from('planilla_items').update({ alias_barras: item.alias_barras }).eq('id', itemId);
+        if (error) {
+            console.error('Error saving alias:', error);
+            showToast('Error al vincular código', 'err');
+        } else {
+            showToast('Código vinculado correctamente', 'ok');
+        }
+    }
+
+    // 3. Process the scan
+    const codeToProcess = pendingBarcode;
+    closeModal('modal-associate');
+    await processBarcode(codeToProcess, 'camara', 1);
 }
 
 // Core matching: finds expected item by barcode OR by alias

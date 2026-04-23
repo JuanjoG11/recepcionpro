@@ -461,6 +461,28 @@
   </div>
 </div>
 
+<!-- Associate Unknown Barcode Modal -->
+<div class="modal-overlay" id="modal-associate">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>Asociar Código Desconocido</h2>
+      <button class="modal-close" onclick="closeModal('modal-associate')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;margin-bottom:15px">El código <strong id="unknown-code-display" class="si-code" style="color:var(--yellow)">---</strong> no está en la planilla. ¿A qué producto corresponde?</p>
+      <div class="form-group">
+        <input type="text" id="associate-search" class="form-input" placeholder="🔎 Buscar producto en planilla..." oninput="renderAssociateList()" />
+      </div>
+      <div id="associate-list" class="lista-items" style="max-height:300px;margin-top:10px;overflow-y:auto">
+        <!-- List of planilla items to choose from -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-associate')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast notifications -->
 <div class="toast-container" id="toast-container"></div>
 
